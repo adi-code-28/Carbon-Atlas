@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carbon Atlas | Personal Emissions Tracker</title>
+  <meta name="description" content="A ready-to-use personal carbon tracker with daily budgets, commute scoring, receipt parsing, offsets, local persistence, and exportable activity history.">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <canvas id="ambient-canvas" aria-hidden="true"></canvas>
+
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="#overview" aria-label="Carbon Atlas home">
+        <span class="brand-mark" aria-hidden="true">CA</span>
+        <span>
+          <strong>Carbon Atlas</strong>
+          <small>Personal emissions workspace</small>
+        </span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="#overview">Overview</a>
+        <a href="#ai">AI</a>
+        <a href="#trackers">Track</a>
+        <a href="#analytics">Insights</a>
+        <a href="#planner">Plan</a>
+        <a href="#ledger">Ledger</a>
+      </nav>
+
+      <div class="topbar-actions">
+        <span class="sync-badge"><span></span> Local data</span>
+        <button class="icon-button" id="open-settings-btn" type="button" aria-label="Open settings" title="Settings">
+          <span aria-hidden="true">SET</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="overview">
+        <div class="hero-copy">
+          <p class="eyebrow">Daily carbon command center</p>
+          <h1>Track choices, spot spikes, and keep your footprint under control.</h1>
+          <p class="hero-text">Log transport, food, home energy, purchases, and offsets. Everything runs in the browser with local storage, optional Gemini receipt parsing, and no backend required.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#quick-log">Log activity</a>
+            <button class="button secondary" id="export-csv-btn" type="button">Export CSV</button>
+          </div>
+        </div>
+
+        <div class="hero-panel" aria-label="Today summary">
+          <div class="orbit-visual" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="hero-stat">
+            <span>Today</span>
+            <strong><span id="today-total">0.0</span> kg CO2</strong>
+          </div>
+          <div class="hero-meter">
+            <div id="hero-meter-fill"></div>
+          </div>
+          <div class="hero-grid">
+            <div>
+              <span>Budget</span>
+              <strong><span id="budget-limit-label">12.0</span> kg</strong>
+            </div>
+            <div>
+              <span>Status</span>
+              <strong id="budget-status">On track</strong>
+            </div>
+            <div>
+              <span>Saved</span>
+              <strong><span id="today-saved">0.0</span> kg</strong>
+            </div>
+            <div>
+              <span>Entries</span>
+              <strong id="entry-count">0</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="metrics-grid" aria-label="Carbon metrics">
+        <article class="metric-card">
+          <span class="metric-icon" aria-hidden="true">CO2</span>
+          <div>
+            <p>Net emissions</p>
+            <strong><span id="metric-net">0.0</span> kg</strong>
+          </div>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon" aria-hidden="true">LOW</span>
+          <div>
+            <p>Reductions</p>
+            <strong><span id="metric-reductions">0.0</span> kg</strong>
+          </div>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon" aria-hidden="true">KW</span>
+          <div>
+            <p>Grid intensity</p>
+            <strong><span id="grid-intensity">0.71</span> kg/kWh</strong>
+          </div>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon" aria-hidden="true">AQI</span>
+          <div>
+            <p>Air quality</p>
+            <strong><span id="aqi-score">158</span> AQI</strong>
+          </div>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon" aria-hidden="true">STR</span>
+          <div>
+            <p>Budget streak</p>
+            <strong><span id="streak-count">0</span> days</strong>
+          </div>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon" aria-hidden="true">SCR</span>
+          <div>
+            <p>Carbon score</p>
+            <strong><span id="carbon-score">0</span>/100</strong>
+          </div>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <div class="stack">
+          <article class="panel" id="quick-log">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Fast logging</p>
+                <h2>Add an activity</h2>
+              </div>
+            </div>
+
+            <form class="activity-form" id="activity-form">
+              <label>
+                Activity name
+                <input id="activity-name" type="text" placeholder="e.g. Electricity use" required>
+              </label>
+              <div class="form-row">
+                <label>
+                  Category
+                  <select id="activity-category">
+                    <option>Transport</option>
+                    <option>Food</option>
+                    <option>Home energy</option>
+                    <option>Shopping</option>
+                    <option>Waste</option>
+                    <option>Offset</option>
+                  </select>
+                </label>
+                <label>
+                  kg CO2
+                  <input id="activity-value" type="number" step="0.1" placeholder="2.4" required>
+                </label>
+              </div>
+              <button class="button primary" type="submit">Add entry</button>
+            </form>
+
+            <div class="preset-grid" aria-label="Preset activities">
+              <button class="preset" data-name="Metro instead of car" data-category="Transport" data-value="-2.4" type="button"><span>MT</span> Metro ride <strong>-2.4</strong></button>
+              <button class="preset" data-name="Vegetarian meal" data-category="Food" data-value="-1.6" type="button"><span>VG</span> Veg meal <strong>-1.6</strong></button>
+              <button class="preset" data-name="AC set to 26 C" data-category="Home energy" data-value="-1.1" type="button"><span>AC</span> Efficient AC <strong>-1.1</strong></button>
+              <button class="preset" data-name="Gasoline car trip" data-category="Transport" data-value="4.8" type="button"><span>CAR</span> Car trip <strong>+4.8</strong></button>
+            </div>
+          </article>
+
+          <article class="panel" id="planner">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Commute planner</p>
+                <h2>Compare transport modes</h2>
+              </div>
+              <span class="pill" id="distance-pill">15 km</span>
+            </div>
+
+            <label class="range-label" for="travel-distance">
+              Distance
+              <input id="travel-distance" type="range" min="1" max="100" value="15">
+            </label>
+
+            <div class="mode-grid" role="group" aria-label="Transport mode">
+              <button class="mode active" type="button" data-mode="metro" aria-pressed="true"><span>MT</span><strong>Metro</strong><small>0.02 kg/km</small></button>
+              <button class="mode" type="button" data-mode="ev" aria-pressed="false"><span>EV</span><strong>EV</strong><small>0.05 kg/km</small></button>
+              <button class="mode" type="button" data-mode="bike" aria-pressed="false"><span>BK</span><strong>Bike/walk</strong><small>0.00 kg/km</small></button>
+              <button class="mode" type="button" data-mode="car" aria-pressed="false"><span>CAR</span><strong>Car</strong><small>0.18 kg/km</small></button>
+            </div>
+
+            <div class="planner-result">
+              <div>
+                <span id="planner-label">Saved vs car</span>
+                <strong><span id="planner-value">2.40</span> kg CO2</strong>
+              </div>
+              <button class="button secondary" id="log-trip-btn" type="button">Log trip</button>
+            </div>
+          </article>
+        </div>
+
+        <div class="stack">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Receipt scanner</p>
+                <h2>Estimate from a bill</h2>
+              </div>
+            </div>
+
+            <div class="dropzone" id="receipt-dropzone" aria-label="Choose or drop a receipt image">
+              <input id="receipt-input" type="file" accept="image/*" aria-label="Upload receipt image">
+              <div id="dropzone-empty">
+                <span class="upload-icon" aria-hidden="true">UP</span>
+                <strong>Drop a receipt or utility bill</strong>
+                <p>Uses Gemini when an API key is saved; otherwise it runs a realistic local estimate.</p>
+                <button class="button secondary small" id="browse-files-btn" type="button">Choose image</button>
+              </div>
+              <div class="receipt-preview hidden" id="receipt-preview">
+                <img id="receipt-image" alt="Uploaded receipt preview">
+                <div>
+                  <strong id="receipt-title">Receipt parsed</strong>
+                  <p id="receipt-details">Ready to log</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="scanner-result hidden" id="scanner-result">
+              <div>
+                <span>Estimated impact</span>
+                <strong id="scanner-carbon">+0.0 kg CO2</strong>
+              </div>
+              <button class="button primary" id="approve-receipt-btn" type="button">Log estimate</button>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Offset marketplace</p>
+                <h2>Retire verified carbon</h2>
+              </div>
+            </div>
+
+            <div class="offset-list">
+              <button class="offset" type="button" data-name="Community reforestation" data-value="-50" data-cost="450">
+                <span>RF</span>
+                <strong>Community reforestation</strong>
+                <small>50 kg CO2 - INR 450</small>
+              </button>
+              <button class="offset" type="button" data-name="Solar microgrid" data-value="-40" data-cost="350">
+                <span>SO</span>
+                <strong>Solar microgrid</strong>
+                <small>40 kg CO2 - INR 350</small>
+              </button>
+              <button class="offset" type="button" data-name="Clean cookstoves" data-value="-25" data-cost="220">
+                <span>CK</span>
+                <strong>Clean cookstoves</strong>
+                <small>25 kg CO2 - INR 220</small>
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="workspace ai-workspace" id="ai">
+        <article class="panel coach-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Gemini carbon coach</p>
+              <h2>Ask for personalized advice</h2>
+            </div>
+            <button class="button secondary small" id="generate-insight-btn" type="button">Generate Insight</button>
+          </div>
+          <div class="coach-log" id="coach-log" aria-live="polite">
+            <div class="coach-message assistant">Connect a Gemini key in Settings for live coaching. Without a key, I will use local rules based on your ledger.</div>
+          </div>
+          <form class="coach-form" id="coach-form">
+            <input id="coach-input" type="text" placeholder="How can I reduce my footprint this week?">
+            <button class="button primary" type="submit">Ask</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Smart suggestions</p>
+              <h2>Lower-carbon alternatives</h2>
+            </div>
+          </div>
+          <div class="suggestion-list" id="smart-suggestions">
+            <p class="muted-copy">Log an activity to get tailored alternatives here.</p>
+          </div>
+          <div class="weekly-summary" id="weekly-ai-summary">
+            <p class="muted-copy">Weekly AI summary will appear here.</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel" id="trackers">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Expanded tracking</p>
+            <h2>Food, flights, energy, shopping, and receipt text</h2>
+          </div>
+        </div>
+
+        <div class="tracker-grid">
+          <article class="mini-panel">
+            <h3>Food carbon tracker</h3>
+            <label>
+              Search Indian meal
+              <input id="food-search" type="search" placeholder="dal, paneer, biryani...">
+            </label>
+            <div class="food-results" id="food-results"></div>
+            <div class="form-row">
+              <label>
+                Custom meal
+                <input id="custom-food-name" type="text" placeholder="Meal name">
+              </label>
+              <label>
+                kg CO2e
+                <input id="custom-food-value" type="number" step="0.1" placeholder="1.4">
+              </label>
+            </div>
+            <button class="button secondary small" id="add-custom-food-btn" type="button">Log custom meal</button>
+          </article>
+
+          <article class="mini-panel">
+            <h3>Flight tracker</h3>
+            <div class="form-row">
+              <label>
+                Origin
+                <input id="flight-origin" type="text" placeholder="DEL or Delhi">
+              </label>
+              <label>
+                Destination
+                <input id="flight-destination" type="text" placeholder="BOM or Mumbai">
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Cabin
+                <select id="flight-cabin">
+                  <option value="economy">Economy</option>
+                  <option value="premium">Premium economy</option>
+                  <option value="business">Business</option>
+                  <option value="first">First</option>
+                </select>
+              </label>
+              <label>
+                Passengers
+                <input id="flight-passengers" type="number" min="1" value="1">
+              </label>
+            </div>
+            <div class="planner-result compact-result">
+              <div>
+                <span>Flight estimate</span>
+                <strong><span id="flight-result">0.0</span> kg CO2</strong>
+              </div>
+              <button class="button secondary small" id="log-flight-btn" type="button">Log flight</button>
+            </div>
+          </article>
+
+          <article class="mini-panel">
+            <h3>Energy bill parser</h3>
+            <div class="form-row">
+              <label>
+                Monthly units
+                <input id="energy-kwh" type="number" min="0" placeholder="320">
+              </label>
+              <label>
+                City
+                <select id="energy-city">
+                  <option>Delhi</option>
+                  <option>Mumbai</option>
+                  <option>Bengaluru</option>
+                  <option>Chennai</option>
+                  <option>Kolkata</option>
+                  <option>Hyderabad</option>
+                  <option>Pune</option>
+                </select>
+              </label>
+            </div>
+            <div class="planner-result compact-result">
+              <div>
+                <span>Bill estimate</span>
+                <strong><span id="energy-result">0.0</span> kg CO2</strong>
+              </div>
+              <button class="button secondary small" id="log-energy-btn" type="button">Log bill</button>
+            </div>
+          </article>
+
+          <article class="mini-panel">
+            <h3>Shopping estimator</h3>
+            <label>
+              Category
+              <select id="shopping-category">
+                <option value="clothing">Clothing</option>
+                <option value="electronics">Electronics</option>
+                <option value="groceries">Groceries</option>
+                <option value="appliances">Appliances</option>
+              </select>
+            </label>
+            <label class="range-label">
+              Spend amount: INR <span id="shopping-spend-label">3000</span>
+              <input id="shopping-spend" type="range" min="250" max="100000" step="250" value="3000">
+            </label>
+            <div class="planner-result compact-result">
+              <div>
+                <span>Lifecycle estimate</span>
+                <strong><span id="shopping-result">0.0</span> kg CO2e</strong>
+              </div>
+              <button class="button secondary small" id="log-shopping-btn" type="button">Log purchase</button>
+            </div>
+          </article>
+
+          <article class="mini-panel wide-mini">
+            <h3>Receipt text auto-categorizer</h3>
+            <textarea id="receipt-text-input" placeholder="Paste receipt text here: merchant, items, total, units..."></textarea>
+            <div class="planner-result compact-result">
+              <div>
+                <span id="receipt-text-status">Waiting for receipt text</span>
+                <strong id="receipt-text-result">No estimate yet</strong>
+              </div>
+              <div class="button-row">
+                <button class="button secondary small" id="parse-receipt-text-btn" type="button">Parse text</button>
+                <button class="button primary small" id="log-receipt-text-btn" type="button" disabled>Log parsed</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="workspace" id="game">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Gamification</p>
+              <h2>Badges and report card</h2>
+            </div>
+            <button class="button secondary small" id="share-report-btn" type="button">Share</button>
+          </div>
+          <div class="score-layout">
+            <div class="score-ring">
+              <canvas id="score-chart" width="180" height="180"></canvas>
+              <strong id="score-ring-label">0</strong>
+            </div>
+            <div class="report-card" id="report-card">
+              <span>Weekly report</span>
+              <h3 id="report-title">Carbon Atlas Report</h3>
+              <p id="report-summary">Start logging to build your score.</p>
+              <small id="report-meta">0 badges earned</small>
+            </div>
+          </div>
+          <div class="badge-list" id="badge-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Live signals</p>
+              <h2>AQI, weather, grid, and offsets</h2>
+            </div>
+            <button class="button secondary small" id="refresh-live-btn" type="button">Refresh</button>
+          </div>
+          <div class="live-grid">
+            <div class="live-card"><span>AQI station</span><strong id="live-aqi-station">Connect WAQI key</strong><small id="live-aqi-time">No live update</small></div>
+            <div class="live-card"><span>Weather</span><strong id="live-weather">Connect OpenWeather key</strong><small id="weather-tip">Weather suggestions unavailable</small></div>
+            <div class="live-card"><span>Grid intensity</span><strong id="live-grid-carbon">Static fallback</strong><small id="live-grid-note">Using city estimate</small></div>
+            <div class="live-card"><span>Offset price</span><strong id="live-offset-price">INR 720/t</strong><small>Indicative mock market price</small></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel analytics-panel" id="analytics">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Visual analytics</p>
+            <h2>Breakdown, trends, heatmap, and benchmarks</h2>
+          </div>
+          <div class="tab-switch" role="group" aria-label="Trend range">
+            <button class="active" id="week-tab" type="button" data-range="week">Week</button>
+            <button id="month-tab" type="button" data-range="month">Month</button>
+          </div>
+        </div>
+
+        <div class="analytics-grid">
+          <article class="mini-panel chart-panel">
+            <h3>Category breakdown</h3>
+            <canvas id="category-chart" height="220"></canvas>
+          </article>
+          <article class="mini-panel chart-panel">
+            <h3>Rolling trend</h3>
+            <canvas id="trend-chart" height="220"></canvas>
+          </article>
+          <article class="mini-panel wide-mini">
+            <h3>90-day budget heatmap</h3>
+            <div class="heatmap" id="budget-heatmap"></div>
+          </article>
+          <article class="mini-panel wide-mini">
+            <h3>Benchmark comparison</h3>
+            <div class="benchmark" id="benchmark-bars"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel ledger-panel" id="ledger">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Activity history</p>
+            <h2>Carbon ledger</h2>
+          </div>
+          <div class="ledger-actions">
+            <button class="button secondary small" id="seed-demo-btn" type="button">Load demo</button>
+            <button class="button danger small" id="clear-ledger-btn" type="button">Clear</button>
+          </div>
+        </div>
+
+        <div class="chart" id="week-chart" aria-label="Seven day carbon chart"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Activity</th>
+                <th>Category</th>
+                <th>Impact</th>
+              </tr>
+            </thead>
+            <tbody id="ledger-body"></tbody>
+          </table>
+          <div class="empty-state hidden" id="empty-ledger">
+            <strong>No entries yet</strong>
+            <p>Add an activity or load demo data to start tracking.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="modal hidden" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="settings-title">Settings</h2>
+        <button class="icon-button" id="close-settings-btn" type="button" aria-label="Close settings">X</button>
+      </div>
+      <label>
+        Daily budget (kg CO2)
+        <input id="budget-input" type="number" min="1" step="0.5">
+      </label>
+      <label>
+        Gemini API key
+        <input id="gemini-api-key" type="password" placeholder="Optional">
+      </label>
+      <label>
+        WAQI API key
+        <input id="waqi-api-key" type="password" placeholder="Optional live AQI">
+      </label>
+      <label>
+        OpenWeatherMap API key
+        <input id="weather-api-key" type="password" placeholder="Optional weather">
+      </label>
+      <label>
+        Electricity Maps API key
+        <input id="electricity-api-key" type="password" placeholder="Optional grid intensity">
+      </label>
+      <label>
+        Live city
+        <input id="live-city-input" type="text" placeholder="Delhi">
+      </label>
+      <p class="settings-note">Keys are stored only in this browser's local storage. Leave any field blank to use local fallback estimates.</p>
+      <div class="modal-actions">
+        <button class="button secondary" id="clear-key-btn" type="button">Clear key</button>
+        <button class="button primary" id="save-settings-btn" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
