@@ -1,7 +1,7 @@
 # Carbon-Atlas
 A modern browser-first carbon tracking dashboard that helps users log emissions, estimate carbon footprints from receipts, compare commute modes, track sustainability progress, and gain actionable insights. Built with responsive UI, local persistence, and a lightweight Node server.
 
-![Carbon Atlas screenshot](./screenshot-top.png)
+![Carbon Atlas screenshot](./screenshot.png)
 
 ## Features
 - Track carbon emissions from activities and receipts
