@@ -1,3 +1,5 @@
+import { cleanText, normalizeCategory, daysAgo, sum, isToday, sameDate, getEntriesSince, getLastDays, averageDaily, categoryTotals, formatImpact, escapeHtml, parseJsonResponse } from './src/utils.js';
+
 const STORAGE_KEY = "carbon_atlas_ledger_v1";
 const SETTINGS_KEY = "carbon_atlas_settings_v1";
 const EXTENDED_KEY = "carbon_atlas_extended_v1";
@@ -958,21 +960,9 @@ function shareReportCard() {
   navigator.clipboard?.writeText(text).then(() => showToast("Report copied for sharing.")).catch(() => showToast(text));
 }
 
-function categoryTotals(entries) {
-  return entries.reduce((acc, entry) => {
-    if (entry.value > 0) acc[entry.category] = (acc[entry.category] || 0) + entry.value;
-    return acc;
-  }, {});
-}
-
 function topWin() {
   const win = state.ledger.filter((entry) => entry.value < 0).sort((a, b) => a.value - b.value)[0];
   return win ? `${win.name} (${formatImpact(win.value)})` : "no reduction logged yet";
-}
-
-function averageDaily(days) {
-  const list = getLastDays(days);
-  return Number((list.reduce((acc, day) => acc + sum(state.ledger.filter((entry) => sameDate(new Date(entry.createdAt), day.date))), 0) / days).toFixed(1));
 }
 
 function ledgerSummary() {
@@ -1036,47 +1026,8 @@ function createParticle() {
   return { x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, radius: 1 + Math.random() * 3, vx: 0.04 + Math.random() * 0.12, vy: -0.05 - Math.random() * 0.14, color: `hsla(${hue}, 58%, 70%, ${0.08 + Math.random() * 0.16})` };
 }
 
-function getEntriesSince(days) {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  return state.ledger.filter((entry) => new Date(entry.createdAt) >= cutoff);
-}
-
-function getLastDays(count) {
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (count - 1 - index));
-    date.setHours(0, 0, 0, 0);
-    return { date, label: date.toLocaleDateString(undefined, { weekday: "short" }), short: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }) };
-  });
-}
-
-function daysAgo(days, hour, minute) {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  date.setHours(hour, minute, 0, 0);
-  return date.toISOString();
-}
-
-function sum(entries) {
-  return Number(entries.reduce((acc, entry) => acc + Number(entry.value || 0), 0).toFixed(2));
-}
-
-function isToday(isoDate) {
-  return sameDate(new Date(isoDate), new Date());
-}
-
-function sameDate(a, b) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
 function formatDate(isoDate) {
   return new Date(isoDate).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-function formatImpact(value) {
-  const number = Number(value);
-  return `${number >= 0 ? "+" : ""}${number.toFixed(1)} kg`;
 }
 
 function setText(id, value) {
