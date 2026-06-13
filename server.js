@@ -41,8 +41,13 @@ const server = http.createServer((req, res) => {
 
     if (url.pathname === '/api/demo-entries') {
       const demo = [
+        { name: 'Home electricity: 9 kWh', category: 'Home energy', value: 6.4, createdAt: new Date().toISOString() },
         { name: 'Metro instead of car', category: 'Transport', value: -2.4, createdAt: new Date().toISOString() },
-        { name: 'Home electricity', category: 'Home energy', value: 6.4, createdAt: new Date().toISOString() }
+        { name: 'Vegetarian lunch', category: 'Food', value: -1.6, createdAt: new Date().toISOString() },
+        { name: 'Gasoline car errand', category: 'Transport', value: 3.2, createdAt: new Date().toISOString() },
+        { name: 'Composted food scraps', category: 'Waste', value: -0.8, createdAt: new Date().toISOString() },
+        { name: 'Imported apparel purchase', category: 'Shopping', value: 8.7, createdAt: new Date().toISOString() },
+        { name: 'Solar microgrid offset', category: 'Offset', value: -4.0, createdAt: new Date().toISOString() }
       ];
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(demo));

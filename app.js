@@ -149,14 +149,6 @@ function addEntry(name, category, value, createdAt = new Date().toISOString(), m
   generateSmartSuggestions(entry);
 }
 
-function cleanText(value) {
-  return String(value || "").trim().slice(0, 120);
-}
-
-function normalizeCategory(category) {
-  const map = { Energy: "Home energy", "Food & Diet": "Food", "Transit": "Transport" };
-  return map[category] || cleanText(category || "Shopping");
-}
 
 function setupActivityForm() {
   const form = document.getElementById("activity-form");
@@ -322,6 +314,17 @@ function setupLedgerActions() {
       showToast('Demo data loaded (offline fallback).');
     });
   });
+
+  const genBtn = document.getElementById("generate-demo-btn");
+  if (genBtn) {
+    genBtn.addEventListener("click", () => {
+      state.ledger = demoEntries.map((entry, index) => ({ ...entry, id: `demo-${index}-${Date.now()}` }));
+      persistLedger();
+      updateAchievements();
+      render();
+      showToast('Demo session generated.');
+    });
+  }
   document.getElementById("export-csv-btn").addEventListener("click", exportCsv);
 }
 
@@ -420,7 +423,7 @@ async function generateWeeklyInsight() {
 }
 
 function localCoachAdvice(question) {
-  const categories = categoryTotals(getEntriesSince(7));
+  const categories = categoryTotals(getEntriesSince(state.ledger, 7));
   const top = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
   const topText = top ? `${top[0]} is your largest source this week at ${top[1].toFixed(1)} kg.` : "You have not logged much yet.";
   const extra = question.toLowerCase().includes("food")
@@ -430,7 +433,7 @@ function localCoachAdvice(question) {
 }
 
 function localWeeklySummary() {
-  const last7 = getEntriesSince(7);
+  const last7 = getEntriesSince(state.ledger, 7);
   const total = sum(last7);
   const best = last7.filter((entry) => entry.value < 0).sort((a, b) => a.value - b.value)[0];
   return [
@@ -736,10 +739,6 @@ async function callGemini(prompt, extraParts = []) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 }
 
-function parseJsonResponse(text) {
-  return JSON.parse(String(text).replace(/```json|```/g, "").trim());
-}
-
 function appendCoachMessage(text, role) {
   const log = document.getElementById("coach-log");
   const div = document.createElement("div");
@@ -864,7 +863,7 @@ function updateAchievements() {
   if (state.ledger.some((entry) => entry.category === "Offset")) badges.add("first-offset");
   if (getLastDays(30).some((day) => sum(state.ledger.filter((entry) => sameDate(new Date(entry.createdAt), day.date))) <= 0 && state.ledger.some((entry) => sameDate(new Date(entry.createdAt), day.date)))) badges.add("neutral-day");
   if (calculateStreak() >= 7) badges.add("green-streak-7");
-  if (getEntriesSince(7).filter((entry) => entry.category === "Food" && entry.value <= 1.6).length >= 5) badges.add("vegan-week");
+  if (getEntriesSince(state.ledger, 7).filter((entry) => entry.category === "Food" && entry.value <= 1.6).length >= 5) badges.add("vegan-week");
   if (state.extended.aiTipsActed > 0) badges.add("ai-tips");
   state.extended.badges = [...badges];
   persistExtended();
@@ -873,8 +872,8 @@ function updateAchievements() {
 function calculateScore() {
   const days = getLastDays(7);
   const under = days.filter((day) => sum(state.ledger.filter((entry) => sameDate(new Date(entry.createdAt), day.date))) <= state.settings.dailyBudget).length;
-  const diversity = new Set(getEntriesSince(7).map((entry) => entry.category)).size;
-  const offsets = getEntriesSince(7).filter((entry) => entry.category === "Offset").length;
+  const diversity = new Set(getEntriesSince(state.ledger, 7).map((entry) => entry.category)).size;
+  const offsets = getEntriesSince(state.ledger, 7).filter((entry) => entry.category === "Offset").length;
   const score = under * 8 + Math.min(diversity, 6) * 5 + Math.min(offsets, 3) * 6 + Math.min(state.extended.aiTipsActed, 3) * 5;
   return Math.max(0, Math.min(100, Math.round(score)));
 }
@@ -897,7 +896,7 @@ function renderCharts() {
 }
 
 function renderCategoryChart() {
-  const totals = categoryTotals(getEntriesSince(30));
+  const totals = categoryTotals(getEntriesSince(state.ledger, 30));
   const labels = Object.keys(totals);
   const data = Object.values(totals).map((value) => Math.max(0, value));
   const ctx = document.getElementById("category-chart");
@@ -966,7 +965,7 @@ function topWin() {
 }
 
 function ledgerSummary() {
-  const last7 = getEntriesSince(7);
+  const last7 = getEntriesSince(state.ledger, 7);
   const categories = categoryTotals(last7);
   return JSON.stringify({
     dailyBudget: state.settings.dailyBudget,
@@ -1035,11 +1034,6 @@ function setText(id, value) {
   if (el) el.textContent = value;
 }
 
-function escapeHtml(value) {
-  const div = document.createElement("div");
-  div.textContent = value;
-  return div.innerHTML;
-}
 
 function showToast(message) {
   const toast = document.getElementById("toast");

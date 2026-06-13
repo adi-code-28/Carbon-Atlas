@@ -3,7 +3,8 @@ A modern browser-first carbon tracking dashboard that helps users log emissions,
 
 <img width="857" height="556" alt="image" src="https://github.com/user-attachments/assets/d327178b-6604-4848-abab-1772eb541d10" />
 
-
+## Project Links
+- GitHub: https://github.com/adi-code-28/Carbon-Atlas
 
 ## Features
 - Track carbon emissions from activities and receipts
